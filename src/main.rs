@@ -59,14 +59,13 @@ fn main() -> Result<(), Error> {
                 }
             }
             Event::MainEventsCleared => {
-                let last_update_time = world.update();
+                world.update();
                 
                 let elapsed = last_frame_time.elapsed();
                 
                 println!(
-                    "FPS: {} | {}",
-                    1.0 / elapsed.as_secs_f64(),
-                    last_update_time,
+                    "FPS: {}",
+                    1.0 / elapsed.as_secs_f64()
                 );
                 
                 last_frame_time = Instant::now();

@@ -1,5 +1,5 @@
 use rand::Rng;
-use std::{sync::{atomic::AtomicI32, Arc}, thread, time::Instant};
+use std::thread;
 
 pub struct Universe {
     width: usize,
@@ -39,7 +39,7 @@ impl Universe {
         self.cells_per_thread = self.cells.len() / self.concurent_threads;
     }
 
-    pub fn update(&mut self) -> String {
+    pub fn update(&mut self) {
         if self.concurent_threads == 1 {
             self.update_sync()
         } else {
@@ -47,17 +47,10 @@ impl Universe {
         }
     }
 
-    fn update_sync(&mut self) -> String {
-
-        let mut compute_neighbours_time = 0;
-        let mut update_neighbours_time = 0;
-        let mut swap_time = 0;
-
-
+    fn update_sync(&mut self) {
         for y in 0..self.height {
             for x in 0..self.width {
                 let idx = x + y * self.width;
-                let time = Instant::now();
                 let count = {
                     let mut count = 0;
                     for dx in -1..=1 {
@@ -75,32 +68,19 @@ impl Universe {
                     }
                     count
                 };
-                compute_neighbours_time += time.elapsed().as_micros();
-                let time = Instant::now();
                 self.new_cells[idx] = self.cells[idx].update_neibs(count);
-                update_neighbours_time += time.elapsed().as_micros();
             }
         }
-        let time = Instant::now();
         std::mem::swap(&mut self.cells, &mut self.new_cells);
-        swap_time += time.elapsed().as_micros();
-
-        format!("Compute neighbours: {}us, Update neighbours: {}us, Swap: {}us", compute_neighbours_time, update_neighbours_time, swap_time)
     }
 
-    fn update_parallel(&mut self) -> String {
-
-        let compute_neighbours_time: Arc<AtomicI32> = Arc::new(AtomicI32::new(0));
-        let update_neighbours_time: Arc<AtomicI32> = Arc::new(AtomicI32::new(0));
-        let mut swap_time: i32 = 0;
-        let mut split_time: i32 = 0;
+    fn update_parallel(&mut self) {
 
         let concurrent_threads = self.concurent_threads;
         // Compute the number of rows each thread will be responsible for
         let cells_per_thread = self.cells_per_thread;
 
         // Split the cells into slices for each thread to process
-        let time = Instant::now();
         let mut cells = {
             let mut answer = Vec::new();
             let mut cells = self.new_cells.as_mut_slice();
@@ -111,7 +91,6 @@ impl Universe {
             }
             answer
         };
-        split_time += time.elapsed().as_micros() as i32;
 
         let current_cells = self.cells.as_slice();
 
@@ -124,13 +103,10 @@ impl Universe {
             // Spawn a thread for each slice of cells
             for (i, cells) in cells.iter_mut().enumerate() {
                 let base_index = i * cells_per_thread;
-                let self_neighbours_time = compute_neighbours_time.clone();
-                let self_update_time = update_neighbours_time.clone();
                 s.spawn(move || {
                     for (i, cell) in cells.iter_mut().enumerate() {
                         let x = (base_index + i) % width;
                         let y = (base_index + i) / width;
-                        let time = Instant::now();
                         let count = {
                             let mut count = 0;
                             for dx in -1..=1 {
@@ -148,26 +124,12 @@ impl Universe {
                             }
                             count
                         };
-                        self_neighbours_time.fetch_add(time.elapsed().as_micros() as i32, std::sync::atomic::Ordering::SeqCst);
-                        let time = Instant::now();
                         *cell = current_cells[base_index + i].update_neibs(count);
-                        self_update_time.fetch_add(time.elapsed().as_micros() as i32, std::sync::atomic::Ordering::SeqCst);
                     }
                 });
             }
         });
-
-        let time = Instant::now();
         std::mem::swap(&mut self.cells, &mut self.new_cells);
-        swap_time += time.elapsed().as_micros() as i32;
-
-        format!(
-            "Split: {}us, Compute neighbours: {}us, Update neighbours: {}us, Swap: {}us",
-            split_time,
-            compute_neighbours_time.load(std::sync::atomic::Ordering::SeqCst),
-            update_neighbours_time.load(std::sync::atomic::Ordering::SeqCst),
-            swap_time
-        )
     }
 
     pub fn render(&self, frame: &mut [u8]) {
