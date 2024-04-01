@@ -21,7 +21,6 @@ This application simulates Conway's Game of Life, a cellular automaton devised b
 - [pixels](https://crates.io/crates/pixels) - A tiny hardware-accelerated pixel frame buffer.
 - [rand](https://crates.io/crates/rand) - Random number generation.
 - [winit](https://crates.io/crates/winit) - Cross-platform window creation and management in Rust.
-- [winit_input_helper](https://crates.io/crates/winit_input_helper) - Helper functions for winit's input handling.
 
 ## Installation
 
