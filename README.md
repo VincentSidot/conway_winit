@@ -30,12 +30,12 @@ To build and run the application, follow these steps:
 2. Clone this repository:
 
     ```bash
-    git clone https://github.com/your_username/test-winit.git
+    git clone https://github.com/VincentSidot/conway_winit.git
     ```
 3. Navigate to the project directory:
 
     ```bash
-    cd test-winit
+    cd conway_winit
     ```
 4. Build and run the application:
 
