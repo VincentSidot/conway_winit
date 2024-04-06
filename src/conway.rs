@@ -24,6 +24,124 @@ impl Universe {
         _self
     }
 
+    pub fn resize(&mut self, width: usize, height: usize) {
+        // Resize the cells and new_cells vectors to the new size
+        self.resize_horizontal(width);
+        self.resize_vertical(height);
+        self.cells_per_thread = self.cells.len() / self.concurent_threads;
+    }
+
+    fn resize_horizontal(&mut self, width: usize) {
+        // Resize the cells and new_cells vectors to the new size
+        match width {
+            w if w == self.width => {
+                return;
+            }
+            w if w > self.width => {
+                // If size increases, fill the new cells with dead cells (keep old cells centered)
+                let left_padding = (w - self.width) / 2;
+                let right_padding = w - self.width - left_padding;
+
+                let mut new_cells = Vec::new();
+                let mut cells = Vec::new();
+
+                for y in 0..self.height {
+                    for x in 0..w {
+                        if x < left_padding || x >= w - right_padding {
+                            cells.push(Cell::new(false));
+                            new_cells.push(Cell::new(false));
+                        } else {
+                            let idx = x - left_padding + y * self.width;
+                            cells.push(self.cells[idx]);
+                            new_cells.push(self.cells[idx]);
+                        }
+                    }
+                }
+
+                self.cells = cells;
+                self.new_cells = new_cells;
+                self.width = w;
+
+            }
+            w if w < self.width => {
+                // If size decreases, keep only the cells that fit in the new size (centered)
+                let left_padding = (self.width - w) / 2;
+                let right_padding = self.width - w - left_padding;
+
+                let mut new_cells = Vec::new();
+                let mut cells = Vec::new();
+
+                for y in 0..self.height {
+                    for x in left_padding..(self.width - right_padding) {
+                        let idx = x + y * self.width;
+                        cells.push(self.cells[idx]);
+                        new_cells.push(self.cells[idx]);
+                    }
+                }
+
+                self.cells = cells;
+                self.new_cells = new_cells;
+                self.width = w;
+            }
+            _ => unreachable!() // This should never happen
+        }
+    }
+
+    fn resize_vertical(&mut self, height: usize) {
+        // Resize the cells and new_cells vectors to the new size
+        match height {
+            h if h == self.height => {
+                return;
+            }
+            h if h > self.height => {
+                // If size increases, fill the new cells with dead cells (keep old cells centered)
+                let top_padding = (h - self.height) / 2;
+                let bottom_padding = h - self.height - top_padding;
+
+                let mut new_cells = Vec::new();
+                let mut cells = Vec::new();
+
+                for y in 0..h {
+                    for x in 0..self.width {
+                        if y < top_padding || y >= h - bottom_padding {
+                            cells.push(Cell::new(false));
+                            new_cells.push(Cell::new(false));
+                        } else {
+                            let idx = x + (y - top_padding) * self.width;
+                            cells.push(self.cells[idx]);
+                            new_cells.push(self.cells[idx]);
+                        }
+                    }
+                }
+
+                self.cells = cells;
+                self.new_cells = new_cells;
+                self.height = h;
+            }
+            h if h < self.height => {
+                // If size decreases, keep only the cells that fit in the new size (centered)
+                let top_padding = (self.height - h) / 2;
+                let bottom_padding = self.height - h - top_padding;
+
+                let mut new_cells = Vec::new();
+                let mut cells = Vec::new();
+
+                for y in top_padding..(self.height - bottom_padding) {
+                    for x in 0..self.width {
+                        let idx = x + y * self.width;
+                        cells.push(self.cells[idx]);
+                        new_cells.push(self.cells[idx]);
+                    }
+                }
+
+                self.cells = cells;
+                self.new_cells = new_cells;
+                self.height = h;
+            }
+            _ => unreachable!() // This should never happen
+        }
+    }
+
     fn init(&mut self, alive_probability: f64) {
         let mut rng = rand::thread_rng();
         for _ in 0..self.width * self.height {

@@ -15,9 +15,9 @@ use winit::{
     window::WindowBuilder,
 };
 
-const WIDTH: u32 = 1280;
-const HEIGHT: u32 = 1024;
-const THREADS: usize = 1;
+const WIDTH: u32 = 800;
+const HEIGHT: u32 = 600;
+const THREADS: usize = 4;
 const ALIVE_PROBABILITY: f64 = 0.1;
 
 fn main() -> Result<(), Error> {
@@ -28,7 +28,6 @@ fn main() -> Result<(), Error> {
         WindowBuilder::new()
             .with_title("Hello Pixels")
             .with_inner_size(size)
-            .with_min_inner_size(size)
             .build(&event_loop)
             .unwrap()
     };
@@ -63,6 +62,8 @@ fn main() -> Result<(), Error> {
                 
                 let elapsed = last_frame_time.elapsed();
                 
+                // Remove last printed line
+                print!("\x1b[1A\x1b[2K");
                 println!(
                     "FPS: {}",
                     1.0 / elapsed.as_secs_f64()
@@ -74,10 +75,21 @@ fn main() -> Result<(), Error> {
             Event::WindowEvent { window_id: _, event } => {
                 match event {
                     WindowEvent::Resized(new_size) => {
-                        match pixels.resize_surface(new_size.width, new_size.height) {
-                            Ok(_) => {}
+                        match pixels.resize_buffer(new_size.width, new_size.height) {
+                            Ok(_) => {
+                                match pixels.resize_surface(new_size.width, new_size.height) {
+                                    Ok(_) => {
+                                        world.resize(new_size.width as usize, new_size.height as usize);
+                                    }
+                                    Err(err) => {
+                                        log_error("pixels.resize_surface", err);
+                                        *control_flow = ControlFlow::Exit;
+                                        return;
+                                    }
+                                };
+                            }
                             Err(err) => {
-                                log_error("pixels.resize_surface", err);
+                                log_error("pixels.resize_buffer", err);
                                 *control_flow = ControlFlow::Exit;
                                 return;
                             }
