@@ -1,6 +1,6 @@
 mod conway;
 
-use std::time::Instant;
+use std::{thread, time::{Duration, Instant}};
 
 use error_iter::ErrorIter as _;
 
@@ -15,18 +15,21 @@ use winit::{
     window::WindowBuilder,
 };
 
-const WIDTH: u32 = 1280;
-const HEIGHT: u32 = 1024;
-const THREADS: usize = 1;
+const WIDTH: u32 = 800;
+const HEIGHT: u32 = 600;
+const THREADS: usize = 4;
 const ALIVE_PROBABILITY: f64 = 0.1;
 
+const DISPLAY_RENDER_TIME: bool = true;
+
 fn main() -> Result<(), Error> {
+
     env_logger::init();
     let event_loop = EventLoop::new();
     let window = {
         let size = LogicalSize::new(WIDTH as f64, HEIGHT as f64);
         WindowBuilder::new()
-            .with_title("Hello Pixels")
+            .with_title("Conway's Game of Life")
             .with_inner_size(size)
             .with_min_inner_size(size)
             .build(&event_loop)
@@ -38,35 +41,67 @@ fn main() -> Result<(), Error> {
         let surface_texture = SurfaceTexture::new(window_size.width, window_size.height, &window);
         Pixels::new(WIDTH, HEIGHT, surface_texture)?
     };
+
     let mut world = conway::Universe::new(WIDTH as usize, HEIGHT as usize, ALIVE_PROBABILITY, THREADS);
 
     let mut last_frame_time = Instant::now();
+    let mut render_compute_time: Duration = Duration::from_secs(0);
+    let mut update_compute_time: Duration = Duration::from_secs(0);
 
     event_loop.run(move |event, _, control_flow| {
 
         // Handle events
         match event {
             Event::RedrawRequested(_) => {
-                world.render(pixels.frame_mut());
-
-                match pixels.render() {
-                    Ok(_) => {}
-                    Err(err) => {
-                        log_error("pixels.render", err);
-                        *control_flow = ControlFlow::Exit;
-                        return;
+                if DISPLAY_RENDER_TIME {
+                    let start = Instant::now();
+                    world.render(pixels.frame_mut());
+    
+                    match pixels.render() {
+                        Ok(_) => {}
+                        Err(err) => {
+                            log_error("pixels.render", err);
+                            *control_flow = ControlFlow::Exit;
+                            return;
+                        }
+                    }
+                    render_compute_time = start.elapsed();
+                } else {
+                    world.render(pixels.frame_mut());
+    
+                    match pixels.render() {
+                        Ok(_) => {}
+                        Err(err) => {
+                            log_error("pixels.render", err);
+                            *control_flow = ControlFlow::Exit;
+                            return;
+                        }
                     }
                 }
             }
             Event::MainEventsCleared => {
-                world.update();
-                
+                if DISPLAY_RENDER_TIME {
+                    let start = Instant::now();
+                    world.update();
+                    update_compute_time = start.elapsed();
+                } else {
+                    world.update();
+                }
                 let elapsed = last_frame_time.elapsed();
                 
-                println!(
-                    "FPS: {}",
-                    1.0 / elapsed.as_secs_f64()
-                );
+                if DISPLAY_RENDER_TIME {
+                    println!(
+                        "FPS: {:.2} | Render: {}μs | Update: {}μs",
+                        1.0 / elapsed.as_secs_f64(),
+                        render_compute_time.as_micros(),
+                        update_compute_time.as_micros()
+                    );
+                } else {
+                    println!(
+                        "FPS: {:.2}",
+                        1.0 / elapsed.as_secs_f64()
+                    );
+                }
                 
                 last_frame_time = Instant::now();
                 window.request_redraw();

@@ -8,6 +8,7 @@ pub struct Universe {
     new_cells: Vec<Cell>,
     concurent_threads: usize,
     cells_per_thread: usize,
+    iterations: usize,
 }
 
 impl Universe {
@@ -19,6 +20,7 @@ impl Universe {
             new_cells: Vec::new(),
             concurent_threads,
             cells_per_thread: 0,
+            iterations: 0,
         };
         _self.init(alive_probability);
         _self
@@ -40,6 +42,7 @@ impl Universe {
     }
 
     pub fn update(&mut self) {
+        self.iterations = self.iterations.checked_add(1).unwrap_or(usize::MAX); // Avoid overflow
         if self.concurent_threads == 1 {
             self.update_sync()
         } else {
@@ -133,20 +136,13 @@ impl Universe {
     }
 
     pub fn render(&self, frame: &mut [u8]) {
-        // for (i, pixel) in frame.chunks_exact_mut(4).enumerate() {
-        //     let x = (i % self.width) as usize;
-        //     let y = (i / self.width) as usize;
-        //     let idx = self.get_index(x, y);
-        //     let color = if self.cells[idx].alive {
-        //         ALIVE_COLOR
-        //     } else {
-        //         DEAD_COLOR
-        //     };
-        //     pixel.copy_from_slice(&color);
-        // }
         debug_assert_eq!(4 * self.cells.len(), frame.len());
+        // self.cells.iter().zip(frame.chunks_exact_mut(4))
         for (cell, pixel) in self.cells.iter().zip(frame.chunks_exact_mut(4)) {
-            pixel.copy_from_slice(&cell.get_color());
+            let heat = ((cell.updates as f32 / self.iterations as f32) * 255.0) as u8;
+            let mut color = cell.get_color();
+            color[0] = heat;
+            pixel.copy_from_slice(&color);
         }
     }
 }
@@ -158,14 +154,16 @@ const DECAY_RATE: f32 = 0.01;
 #[derive(Clone, Copy)]
 struct Cell {
     alive: bool,
-    heat: u8
+    heat: u8,
+    updates: usize
 }
 
 impl Cell {
     fn new(alive: bool) -> Self {
         Self {
             alive,
-            heat: 0
+            heat: 0,
+            updates: 0,
         }
     }
 
@@ -179,6 +177,11 @@ impl Cell {
     }
 
     fn next_state(mut self, alive: bool) -> Self {
+
+        if self.alive != alive {
+            self.updates = self.updates.checked_add(1).unwrap_or(usize::MAX); // Avoid overflow
+        }
+
         self.alive = alive;
         if self.alive {
             self.heat = 0xff;
