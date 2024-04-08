@@ -1,6 +1,7 @@
 mod conway;
 
 use std::time::Instant;
+use std::thread;
 
 use error_iter::ErrorIter as _;
 
@@ -17,10 +18,17 @@ use winit::{
 
 const WIDTH: u32 = 800;
 const HEIGHT: u32 = 600;
-const THREADS: usize = 4;
 const ALIVE_PROBABILITY: f64 = 0.1;
 
 fn main() -> Result<(), Error> {
+
+    let threads = thread::available_parallelism().map(|t| t.get()).unwrap_or(1);
+
+    println!("Running on {} threads", threads);
+    println!("Press ESC to exit");
+    println!("");
+
+
     env_logger::init();
     let event_loop = EventLoop::new();
     let window = {
@@ -37,7 +45,7 @@ fn main() -> Result<(), Error> {
         let surface_texture = SurfaceTexture::new(window_size.width, window_size.height, &window);
         Pixels::new(WIDTH, HEIGHT, surface_texture)?
     };
-    let mut world = conway::Universe::new(WIDTH as usize, HEIGHT as usize, ALIVE_PROBABILITY, THREADS);
+    let mut world = conway::Universe::new(WIDTH as usize, HEIGHT as usize, ALIVE_PROBABILITY, threads);
 
     let mut last_frame_time = Instant::now();
 
